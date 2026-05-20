@@ -1,0 +1,58 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "sl-db-engine-spec"
+version = "0.1.0"
+description = "Superset DB engine spec, SQLAlchemy dialect, and Shillelagh adapter for the Semantic Layer REST API."
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.10"
+authors = [{ name = "Beto Dealmeida", email = "beto@preset.io" }]
+keywords = ["superset", "shillelagh", "sqlalchemy", "semantic-layer"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Database",
+]
+dependencies = [
+    "requests>=2.28",
+    "shillelagh>=1.4",
+    "sqlalchemy>=1.4",
+]
+
+[project.optional-dependencies]
+superset = ["apache-superset>=4"]
+dev = [
+    "pytest>=8",
+    "pytest-cov>=5",
+    "requests-mock>=1.11",
+    "pytest-mock>=3.12",
+]
+
+# ─── Entry points ────────────────────────────────────────────────────────────
+# Each host project discovers its plugins via a dedicated entry-point group.
+# Listing all three here means a single `pip install sl-db-engine-spec` wires
+# the adapter into Shillelagh, the dialect into SQLAlchemy, and the engine
+# spec into Superset.
+
+[project.entry-points."shillelagh.adapter"]
+semanticapi = "sl_db_engine_spec.adapter:SemanticAPI"
+
+[project.entry-points."sqlalchemy.dialects"]
+semanticapi = "sl_db_engine_spec.dialect:SemanticAPIDialect"
+
+[project.entry-points."superset.db_engine_specs"]
+semanticapi = "sl_db_engine_spec.engine_spec:SemanticAPIEngineSpec"
+
+[project.urls]
+Homepage = "https://github.com/betodealmeida/sl-db-engine-spec"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/sl_db_engine_spec"]
