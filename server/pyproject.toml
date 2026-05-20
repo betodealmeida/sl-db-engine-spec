@@ -6,7 +6,6 @@ license = "Apache-2.0"
 requires-python = ">=3.10"
 dependencies = [
     "apache-superset-core",
-    "betodealmeida-pandas_semantic_layer",
     "litestar[standard]>=2.18",
     "pyarrow>=16",
     "pydantic>=2",
