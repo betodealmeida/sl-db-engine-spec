@@ -1,0 +1,23 @@
+[project]
+name = "semantic-api"
+version = "0.1.0"
+description = "Reference REST API for Superset semantic layers."
+license = "Apache-2.0"
+requires-python = ">=3.10"
+dependencies = [
+    "apache-superset-core",
+    "betodealmeida-pandas_semantic_layer",
+    "litestar[standard]>=2.18",
+    "pyarrow>=16",
+    "pydantic>=2",
+]
+
+[project.scripts]
+semantic-api = "semantic_api.__main__:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/semantic_api"]
