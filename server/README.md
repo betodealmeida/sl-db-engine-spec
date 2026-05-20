@@ -2,15 +2,20 @@
 
 A Litestar reference implementation of the protocol described in
 [`SPEC.md`](./SPEC.md). A server speaks for exactly one already-configured
-`SemanticLayer` instance; this build is wired up to the Pandas semantic
-layer.
+`SemanticLayer` instance; the layer implementation is supplied by the
+operator at startup.
 
 ## Run
 
 ```bash
-pip install -e ../../superset/superset-core
-pip install -e ../backend
+pip install -e /path/to/superset/superset-core
 pip install -e .
+
+# also install whichever semantic layer implementation you want to serve, e.g.
+pip install -e /path/to/pandas-semantic-layer/backend
+
+# required: module whose import triggers a @semantic_layer registration
+export SEMANTIC_LAYER_MODULE=betodealmeida.pandas_semantic_layer.layer
 
 # optional: pass the layer's configuration as JSON
 export SEMANTIC_LAYER_CONFIGURATION='{"dataset": "sales"}'
