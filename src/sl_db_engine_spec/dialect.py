@@ -312,3 +312,17 @@ class SemanticAPIDialect(APSWDialect):
 
     def get_table_comment(self, connection, table_name, schema=None, **kwargs):
         return {"text": "A semantic view exposed as a virtual table."}
+
+
+class SemanticAPIHttpsDialect(SemanticAPIDialect):
+    """
+    Identical to :class:`SemanticAPIDialect` but defaults to HTTPS.
+
+    Registered as ``semanticapi+https://``, so encryption is on unless the
+    caller explicitly passes ``?encryption=false``.
+    """
+
+    def create_connect_args(self, url: URL) -> tuple[tuple[()], dict[str, Any]]:
+        if "encryption" not in url.query:
+            url = url.update_query_dict({"encryption": "true"})
+        return super().create_connect_args(url)
