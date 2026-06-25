@@ -185,6 +185,28 @@ class SemanticAPIEngineSpec(ShillelaghEngineSpec):
         port = parameters.get("port")
         secure = bool(parameters.get("secure"))
 
+        if encrypted_extra is None:
+            encrypted_extra = {}
+
+        # Promote ``parameters.oauth2_client_info`` into ``encrypted_extra``
+        # when missing. The frontend sends it in ``parameters`` during
+        # ``validate_parameters`` (no ``masked_encrypted_extra`` in that call),
+        # which would otherwise leave the ephemeral database's
+        # ``encrypted_extra`` empty and ``is_oauth2_enabled()`` returning False
+        # — masking what is in fact an OAuth2 connection.
+        if (
+            "oauth2_client_info" not in encrypted_extra
+            and parameters.get("oauth2_client_info")
+        ):
+            client_info = parameters["oauth2_client_info"]
+            if isinstance(client_info, str):
+                try:
+                    client_info = json.loads(client_info)
+                except (TypeError, ValueError):
+                    client_info = None
+            if isinstance(client_info, dict):
+                encrypted_extra["oauth2_client_info"] = client_info
+
         query: dict[str, str] = {}
         if secure:
             query["secure"] = "true"
@@ -193,7 +215,7 @@ class SemanticAPIEngineSpec(ShillelaghEngineSpec):
                 config if isinstance(config, str) else json.dumps(config)
             )
 
-        if encrypted_extra and (oauth2 := encrypted_extra.get("oauth2_client_info")):
+        if oauth2 := encrypted_extra.get("oauth2_client_info"):
             scheme = "https" if secure else "http"
             netloc = f"{host}:{port}" if port else host
             base = f"{scheme}://{netloc}"
