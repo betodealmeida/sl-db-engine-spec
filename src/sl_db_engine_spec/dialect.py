@@ -154,7 +154,7 @@ class SemanticAPIDialect(APSWDialect):
         semanticapi://host[:port]/
 
     Query parameters:
-        ``secure``                    set to ``true`` to use HTTPS
+        ``encryption``                set to ``true`` to use HTTPS
         ``additional_configuration``  JSON object forwarded to the view
                                       (used as ``runtime_configuration``
                                       when listing views)
@@ -176,8 +176,8 @@ class SemanticAPIDialect(APSWDialect):
         self._adapter_cls: type[TableSemanticAPI] | None = None
 
     def create_connect_args(self, url: URL) -> tuple[tuple[()], dict[str, Any]]:
-        secure = str(url.query.get("secure", "")).lower() in _TRUTHY
-        scheme = "https" if secure else "http"
+        encryption = str(url.query.get("encryption", "")).lower() in _TRUTHY
+        scheme = "https" if encryption else "http"
         netloc = f"{url.host}:{url.port}" if url.port else url.host
         self._base_url = f"{scheme}://{netloc}"
 

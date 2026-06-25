@@ -69,7 +69,7 @@ class SemanticAPIParametersSchema(Schema):
         allow_none=True,
         metadata={"description": "Optional port (omit to use the URL default)."},
     )
-    secure = fields.Bool(
+    encryption = fields.Bool(
         load_default=False,
         metadata={"description": "Use HTTPS to reach the server."},
     )
@@ -102,7 +102,7 @@ class SemanticAPIParametersSchema(Schema):
 class SemanticAPIParametersType(TypedDict, total=False):
     host: str
     port: int | None
-    secure: bool
+    encryption: bool
     additional_configuration: dict[str, Any] | None
     oauth2_client_info: str | None
 
@@ -118,7 +118,7 @@ class SemanticAPIEngineSpec(ShillelaghEngineSpec):
 
     Connection URL::
 
-        semanticapi://<host>[:port]/[?secure=true]
+        semanticapi://<host>[:port]/[?encryption=true]
 
     OAuth2 is supported. The database's ``encrypted_extra`` should look like::
 
@@ -139,7 +139,7 @@ class SemanticAPIEngineSpec(ShillelaghEngineSpec):
     engine = "semanticapi"
     engine_name = "Semantic Layer API"
     default_driver = "apsw"
-    sqlalchemy_uri_placeholder = "semanticapi://<host>[:port]/?secure=<true|false>"
+    sqlalchemy_uri_placeholder = "semanticapi://<host>[:port]/?encryption=<true|false>"
 
     parameters_schema = SemanticAPIParametersSchema()
 
@@ -183,7 +183,7 @@ class SemanticAPIEngineSpec(ShillelaghEngineSpec):
         """
         host = parameters.get("host") or ""
         port = parameters.get("port")
-        secure = bool(parameters.get("secure"))
+        encryption = bool(parameters.get("encryption"))
 
         if encrypted_extra is None:
             encrypted_extra = {}
@@ -208,15 +208,15 @@ class SemanticAPIEngineSpec(ShillelaghEngineSpec):
                 encrypted_extra["oauth2_client_info"] = client_info
 
         query: dict[str, str] = {}
-        if secure:
-            query["secure"] = "true"
+        if encryption:
+            query["encryption"] = "true"
         if config := parameters.get("additional_configuration"):
             query["additional_configuration"] = (
                 config if isinstance(config, str) else json.dumps(config)
             )
 
         if oauth2 := encrypted_extra.get("oauth2_client_info"):
-            scheme = "https" if secure else "http"
+            scheme = "https" if encryption else "http"
             netloc = f"{host}:{port}" if port else host
             base = f"{scheme}://{netloc}"
             oauth2.setdefault("authorization_request_uri", f"{base}/authorize")
@@ -238,7 +238,7 @@ class SemanticAPIEngineSpec(ShillelaghEngineSpec):
         parameters: SemanticAPIParametersType = {
             "host": url.host or "",
             "port": url.port,
-            "secure": str(url.query.get("secure", "")).lower() in _TRUTHY,
+            "encryption": str(url.query.get("encryption", "")).lower() in _TRUTHY,
         }
         if raw := url.query.get("additional_configuration"):
             try:
