@@ -47,6 +47,8 @@ semanticapi = "sl_db_engine_spec.adapter:SemanticAPI"
 
 [project.entry-points."sqlalchemy.dialects"]
 semanticapi = "sl_db_engine_spec.dialect:SemanticAPIDialect"
+"semanticapi.http" = "sl_db_engine_spec.dialect:SemanticAPIDialect"
+"semanticapi.https" = "sl_db_engine_spec.dialect:SemanticAPIHttpsDialect"
 
 [project.entry-points."superset.db_engine_specs"]
 semanticapi = "sl_db_engine_spec.engine_spec:SemanticAPIEngineSpec"
