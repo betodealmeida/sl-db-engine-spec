@@ -73,6 +73,17 @@ class SemanticAPIParametersSchema(Schema):
         load_default=False,
         metadata={"description": "Use HTTPS to reach the server."},
     )
+    http_path = fields.Str(
+        required=False,
+        allow_none=True,
+        metadata={
+            "description": (
+                "Base path where the Semantic Layer REST API is mounted on "
+                "the server, e.g. ``/api/datajunction/semantic``. Leave "
+                "blank if the API is mounted at the root."
+            ),
+        },
+    )
     additional_configuration = fields.Dict(
         required=False,
         allow_none=True,
@@ -103,6 +114,7 @@ class SemanticAPIParametersType(TypedDict, total=False):
     host: str
     port: int | None
     encryption: bool
+    http_path: str | None
     additional_configuration: dict[str, Any] | None
     oauth2_client_info: str | None
 
@@ -118,7 +130,7 @@ class SemanticAPIEngineSpec(ShillelaghEngineSpec):
 
     Connection URL::
 
-        semanticapi://<host>[:port]/[?encryption=true]
+        semanticapi://<host>[:port]/[?encryption=true][&http_path=<path>]
 
     OAuth2 is supported. The database's ``encrypted_extra`` should look like::
 
@@ -139,7 +151,9 @@ class SemanticAPIEngineSpec(ShillelaghEngineSpec):
     engine = "semanticapi"
     engine_name = "Semantic Layer API"
     default_driver = "apsw"
-    sqlalchemy_uri_placeholder = "semanticapi://<host>[:port]/?encryption=<true|false>"
+    sqlalchemy_uri_placeholder = (
+        "semanticapi://<host>[:port]/?encryption=<true|false>&http_path=<path>"
+    )
 
     parameters_schema = SemanticAPIParametersSchema()
 
@@ -210,6 +224,8 @@ class SemanticAPIEngineSpec(ShillelaghEngineSpec):
         query: dict[str, str] = {}
         if encryption:
             query["encryption"] = "true"
+        if http_path := parameters.get("http_path"):
+            query["http_path"] = http_path
         if config := parameters.get("additional_configuration"):
             query["additional_configuration"] = (
                 config if isinstance(config, str) else json.dumps(config)
@@ -240,6 +256,8 @@ class SemanticAPIEngineSpec(ShillelaghEngineSpec):
             "port": url.port,
             "encryption": str(url.query.get("encryption", "")).lower() in _TRUTHY,
         }
+        if http_path := url.query.get("http_path"):
+            parameters["http_path"] = http_path
         if raw := url.query.get("additional_configuration"):
             try:
                 parameters["additional_configuration"] = json.loads(raw)
@@ -322,19 +340,32 @@ class SemanticAPIEngineSpec(ShillelaghEngineSpec):
         schema: str | None = None,
     ) -> tuple[URL, dict[str, Any]]:
         """
-        Fold ``additional_configuration`` from the database's ``extra`` field
-        (placed by the user under ``engine_params.connect_args``) into the URL
-        query string, so the dialect can pick it up.
+        Fold ``additional_configuration`` and ``http_path`` from the
+        database's ``extra`` field (placed by the user under
+        ``engine_params.connect_args``) into the URL query string, so the
+        dialect can pick them up.
+
+        These are popped from ``connect_args`` *before* calling ``super()``,
+        rather than from the dict it returns: the base implementation
+        rebuilds ``connect_args`` as a new dict (``{**connect_args, ...}``),
+        and Superset's caller never writes that returned dict back into the
+        ``extra.engine_params.connect_args`` it passed in, so mutating the
+        copy would silently leave the original keys in place for
+        ``create_engine``.
         """
-        uri, connect_args = super().adjust_engine_params(
-            uri, connect_args, catalog, schema
-        )
+        query = dict(uri.query)
         if (config := connect_args.pop("additional_configuration", None)) is not None:
-            query = dict(uri.query)
             query["additional_configuration"] = (
                 config if isinstance(config, str) else json.dumps(config)
             )
+        if (http_path := connect_args.pop("http_path", None)) is not None:
+            query["http_path"] = http_path
+        if query != dict(uri.query):
             uri = uri.set(query=query)
+
+        uri, connect_args = super().adjust_engine_params(
+            uri, connect_args, catalog, schema
+        )
         return uri, connect_args
 
     @classmethod
