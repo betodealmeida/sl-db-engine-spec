@@ -155,6 +155,9 @@ class SemanticAPIDialect(APSWDialect):
 
     Query parameters:
         ``encryption``                set to ``true`` to use HTTPS
+        ``http_path``                 base path where the REST API is
+                                      mounted on the server (e.g.
+                                      ``/api/datajunction/semantic``)
         ``additional_configuration``  JSON object forwarded to the view
                                       (used as ``runtime_configuration``
                                       when listing views)
@@ -179,7 +182,8 @@ class SemanticAPIDialect(APSWDialect):
         encryption = str(url.query.get("encryption", "")).lower() in _TRUTHY
         scheme = "https" if encryption else "http"
         netloc = f"{url.host}:{url.port}" if url.port else url.host
-        self._base_url = f"{scheme}://{netloc}"
+        http_path = str(url.query.get("http_path", "")).strip("/")
+        self._base_url = f"{scheme}://{netloc}/{http_path}".rstrip("/")
 
         self._configuration = {}
         if raw := url.query.get("additional_configuration"):
@@ -218,9 +222,11 @@ class SemanticAPIDialect(APSWDialect):
             headers=headers,
             timeout=_DEFAULT_TIMEOUT,
         )
-        if response.status_code == 401:
-            # surface as the canonical shillelagh exception so the Superset
-            # engine spec's ``needs_oauth2`` recognises it and starts the dance
+        # Surface as the canonical shillelagh exception so the Superset engine
+        # spec's ``needs_oauth2`` recognises it and starts the dance. Some
+        # servers (e.g. Quiver) don't return 401 for unauthenticated requests
+        # to this endpoint, only 404, so both are treated as an auth failure.
+        if response.status_code in (401, 404):
             detail = "Authentication required."
             try:
                 detail = response.json().get("detail", detail)
