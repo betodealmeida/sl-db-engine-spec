@@ -226,7 +226,8 @@ class SemanticAPIDialect(APSWDialect):
         # spec's ``needs_oauth2`` recognises it and starts the dance. Some
         # servers (e.g. Quiver) don't return 401 for unauthenticated requests
         # to this endpoint, only 404, so both are treated as an auth failure.
-        if response.status_code in (401, 404):
+        # Some tests also showed a 307 being returned.
+        if response.status_code in (307, 401, 404):
             detail = "Authentication required."
             try:
                 detail = response.json().get("detail", detail)
