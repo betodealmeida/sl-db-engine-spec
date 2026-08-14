@@ -56,7 +56,7 @@ Errors follow [RFC 7807](https://datatracker.ietf.org/doc/html/rfc7807):
 
 ## Endpoints
 
-### `POST /views/list`
+### `POST /views/` (`POST /views/list` supported but deprecated)
 
 Lists semantic views. `POST` is used because the runtime configuration is a
 free-form JSON object.

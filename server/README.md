@@ -31,7 +31,7 @@ OpenAPI docs are served at `/schema`. Swagger UI at `/schema/swagger`.
 
 ```bash
 # 1. list views
-curl localhost:8000/views/list -H 'content-type: application/json' -d '{}'
+curl localhost:8000/views/ -H 'content-type: application/json' -d '{}'
 
 # 2. inspect a view
 curl localhost:8000/views/sales -H 'content-type: application/json' -d '{}'
