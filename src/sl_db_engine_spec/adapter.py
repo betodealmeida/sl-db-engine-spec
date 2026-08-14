@@ -42,11 +42,13 @@ from shillelagh.exceptions import (
 )
 from shillelagh.fields import (
     Boolean,
+    Decimal,
     Field,
     Float,
     Integer,
     ISODate,
     ISODateTime,
+    ISOTime,
     Order,
     String,
     Unknown,
@@ -71,6 +73,7 @@ _SCALAR_FILTERS = [Equal, NotEqual, Range, IsNull, IsNotNull]
 _NON_SCALAR_FILTERS = [Equal, NotEqual, IsNull, IsNotNull]
 
 _INTEGER_TYPES = {
+    "int",
     "int8",
     "int16",
     "int32",
@@ -82,15 +85,18 @@ _INTEGER_TYPES = {
 }
 _FLOAT_TYPES = {"halffloat", "float", "double", "float16", "float32", "float64"}
 _STRING_TYPES = {"string", "utf8", "large_string", "large_utf8"}
+_DATE_TYPES = {"date", "date32", "date64"}
+_TIME_TYPES = {"time", "time32", "time64"}
 
 
 _FIELD_BY_TYPE: dict[str, tuple[type[Field], list[type[Filter]]]] = {
     **{t: (String, _SCALAR_FILTERS) for t in _STRING_TYPES},
     **{t: (Integer, _SCALAR_FILTERS) for t in _INTEGER_TYPES},
     **{t: (Float, _SCALAR_FILTERS) for t in _FLOAT_TYPES},
+    **{t: (ISODate, _SCALAR_FILTERS) for t in _DATE_TYPES},
+    **{t: (ISOTime, _SCALAR_FILTERS) for t in _TIME_TYPES},
     "bool": (Boolean, _NON_SCALAR_FILTERS),
-    "date32": (ISODate, _SCALAR_FILTERS),
-    "date64": (ISODate, _SCALAR_FILTERS),
+    "decimal": (Decimal, _SCALAR_FILTERS),
     "timestamp": (ISODateTime, _SCALAR_FILTERS),
 }
 

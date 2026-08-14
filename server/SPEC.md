@@ -30,14 +30,14 @@ All payloads are JSON (`application/json`). Tabular results use:
 
 ```json
 {
-    "schema": [{"name": "<col>", "type": "<arrow-type>"}],
+    "schema": [{"name": "<col>", "type": "<arrow-type-name>"}],
     "rows":   [{"<col>": <value>, ...}]
 }
 ```
 
-Arrow types are reported using their canonical string form (`int64`,
-`float64`, `string`, `date32[day]`, `timestamp[us]`, …). Temporal values are
-serialised as ISO 8601 strings.
+Arrow types are reported using the Arrow JSON type object's `name` value
+(`int`, `float`, `utf8`, `date`, `timestamp`, …), without precision or unit
+parameters. Temporal values are serialised as ISO 8601 strings.
 
 ## Errors
 
@@ -97,7 +97,7 @@ Response:
         {
             "id": "sales.product_category",
             "name": "product_category",
-            "type": "string",
+            "type": "utf8",
             "definition": "product_category",
             "description": "The product category dimension.",
             "grain": null
@@ -107,7 +107,7 @@ Response:
         {
             "id": "sales.total_revenue",
             "name": "total_revenue",
-            "type": "double",
+            "type": "float",
             "definition": "SUM(revenue)",
             "description": "Total sales revenue.",
             "aggregation": null
@@ -163,8 +163,8 @@ Response — a `SemanticResult`:
     "requests": [{"type": "pandas", "definition": "SELECT METRICS ..."}],
     "results": {
         "schema": [
-            {"name": "product_category", "type": "string"},
-            {"name": "total_revenue",    "type": "double"}
+            {"name": "product_category", "type": "utf8"},
+            {"name": "total_revenue",    "type": "float"}
         ],
         "rows": [
             {"product_category": "Electronics", "total_revenue": 5126.5}
