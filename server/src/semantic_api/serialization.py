@@ -23,7 +23,7 @@ def arrow_type_name(type_: pa.DataType) -> str:
     if pa_types.is_integer(type_):
         return "int"
     if pa_types.is_floating(type_):
-        return "float"
+        return "floating"
     if pa_types.is_string(type_) or pa_types.is_large_string(type_):
         return "utf8"
     if pa_types.is_binary(type_) or pa_types.is_large_binary(type_):
