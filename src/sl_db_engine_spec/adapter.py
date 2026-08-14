@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import logging
 import re
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from typing import Any, cast
 from urllib.parse import parse_qs, urlparse, urlunparse
 
@@ -110,6 +110,11 @@ def _field_for(arrow_type: str, exact: bool = True) -> Field:
     base = arrow_type.split("[", 1)[0]
     cls, filters = _FIELD_BY_TYPE.get(base, (Unknown, _NON_SCALAR_FILTERS))
     return cls(filters=filters, order=Order.ANY, exact=exact)
+
+
+def _metadata_for(column: dict[str, Any]) -> dict[str, Any]:
+    metadata = column.get("metadata")
+    return dict(metadata) if isinstance(metadata, Mapping) else {}
 
 
 class SemanticAPI(Adapter):  # pylint: disable=too-many-instance-attributes
@@ -202,14 +207,23 @@ class SemanticAPI(Adapter):  # pylint: disable=too-many-instance-attributes
         self.metric_ids: dict[str, str] = {m["name"]: m["id"] for m in view["metrics"]}
 
         columns: dict[str, Field] = {}
+        column_metadata: dict[str, dict[str, Any]] = {}
         for dimension in view["dimensions"]:
             columns[dimension["name"]] = _field_for(dimension["type"], exact=True)
+            if metadata := _metadata_for(dimension):
+                column_metadata[dimension["name"]] = metadata
         for metric in view["metrics"]:
             columns[metric["name"]] = _field_for(metric["type"], exact=False)
+            if metadata := _metadata_for(metric):
+                column_metadata[metric["name"]] = metadata
         self.columns = dict(sorted(columns.items()))
+        self.column_metadata = dict(sorted(column_metadata.items()))
 
     def get_columns(self) -> dict[str, Field]:
         return self.columns
+
+    def get_column_metadata(self) -> dict[str, dict[str, Any]]:
+        return self.column_metadata
 
     def get_data(
         self,

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+from collections.abc import Mapping
 from typing import Any
 
 import pyarrow as pa
@@ -63,6 +65,25 @@ def field(name: str, type_: pa.DataType) -> dict[str, str]:
     return {"name": name, "type": arrow_type_name(type_)}
 
 
+def column_metadata(column: Any) -> dict[str, Any] | None:
+    metadata = getattr(column, "metadata", None)
+    result = dict(metadata) if isinstance(metadata, Mapping) else {}
+
+    unit = getattr(column, "unit", None)
+    if isinstance(unit, str) and "unit" not in result:
+        result["unit"] = unit
+
+    filter_metadata = getattr(column, "filter_metadata", None)
+    if isinstance(filter_metadata, Mapping) and "filter" not in result:
+        result["filter"] = dict(filter_metadata)
+
+    if not result:
+        return None
+
+    json.dumps(result)
+    return result
+
+
 def table_to_payload(table: pa.Table) -> dict[str, Any]:
     return {
         "schema": [field(f.name, f.type) for f in table.schema],
@@ -81,7 +102,7 @@ def result_to_payload(result: SemanticResult) -> dict[str, Any]:
 
 
 def dimension_to_payload(dimension: Dimension) -> dict[str, Any]:
-    return {
+    payload = {
         "id": dimension.id,
         "name": dimension.name,
         "type": arrow_type_name(dimension.type),
@@ -93,11 +114,14 @@ def dimension_to_payload(dimension: Dimension) -> dict[str, Any]:
             else None
         ),
     }
+    if metadata := column_metadata(dimension):
+        payload["metadata"] = metadata
+    return payload
 
 
 def metric_to_payload(metric: Metric) -> dict[str, Any]:
     aggregation = getattr(metric, "aggregation", None)
-    return {
+    payload = {
         "id": metric.id,
         "name": metric.name,
         "type": arrow_type_name(metric.type),
@@ -105,3 +129,6 @@ def metric_to_payload(metric: Metric) -> dict[str, Any]:
         "description": metric.description,
         "aggregation": aggregation.value if aggregation else None,
     }
+    if metadata := column_metadata(metric):
+        payload["metadata"] = metadata
+    return payload

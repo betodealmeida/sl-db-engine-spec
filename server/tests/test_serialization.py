@@ -1,8 +1,14 @@
 from datetime import date
+from types import SimpleNamespace
 
 import pyarrow as pa
 
-from semantic_api.serialization import arrow_type_name, table_to_payload
+from semantic_api.serialization import (
+    arrow_type_name,
+    dimension_to_payload,
+    metric_to_payload,
+    table_to_payload,
+)
 
 
 def test_arrow_type_name_returns_family_name() -> None:
@@ -36,3 +42,76 @@ def test_table_to_payload_uses_type_family_names() -> None:
         {"name": "amount", "type": "float"},
         {"name": "created", "type": "date"},
     ]
+
+
+def test_column_payload_omits_empty_metadata() -> None:
+    dimension = SimpleNamespace(
+        id="sales.region",
+        name="region",
+        type=pa.string(),
+        definition="region",
+        description=None,
+        grain=None,
+    )
+
+    payload = dimension_to_payload(dimension)
+
+    assert "metadata" not in payload
+
+
+def test_column_payload_includes_metadata_and_compatibility_attrs() -> None:
+    metric = SimpleNamespace(
+        id="sales.total_revenue",
+        name="total_revenue",
+        type=pa.float64(),
+        definition="SUM(revenue)",
+        description=None,
+        aggregation=None,
+        metadata={"display": {"label": "Revenue"}},
+        unit="usd",
+        filter_metadata={
+            "operators": ["=", "!=", ">", ">="],
+            "control": "number",
+            "value_type": "float",
+        },
+    )
+
+    payload = metric_to_payload(metric)
+
+    assert payload["metadata"] == {
+        "display": {"label": "Revenue"},
+        "unit": "usd",
+        "filter": {
+            "operators": ["=", "!=", ">", ">="],
+            "control": "number",
+            "value_type": "float",
+        },
+    }
+
+
+def test_existing_metadata_keys_take_precedence() -> None:
+    metric = SimpleNamespace(
+        id="sales.total_revenue",
+        name="total_revenue",
+        type=pa.float64(),
+        definition="SUM(revenue)",
+        description=None,
+        aggregation=None,
+        metadata={
+            "unit": "eur",
+            "filter": {"operators": ["="], "control": "number", "value_type": "float"},
+        },
+        unit="usd",
+        filter_metadata={
+            "operators": [">"],
+            "control": "number",
+            "value_type": "float",
+        },
+    )
+
+    payload = metric_to_payload(metric)
+
+    assert payload["metadata"] == {
+        "unit": "eur",
+        "filter": {"operators": ["="], "control": "number", "value_type": "float"},
+    }

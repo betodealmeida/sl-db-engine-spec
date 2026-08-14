@@ -98,6 +98,14 @@ Response:
             "id": "sales.product_category",
             "name": "product_category",
             "type": "utf8",
+            "metadata": {
+                "filter": {
+                    "operators": ["=", "!=", "IN", "NOT IN", "IS NULL", "IS NOT NULL"],
+                    "control": "select",
+                    "value_type": "utf8",
+                    "values": {"type": "endpoint", "endpoint": "values"}
+                }
+            },
             "definition": "product_category",
             "description": "The product category dimension.",
             "grain": null
@@ -108,6 +116,14 @@ Response:
             "id": "sales.total_revenue",
             "name": "total_revenue",
             "type": "float",
+            "metadata": {
+                "unit": "usd",
+                "filter": {
+                    "operators": ["=", "!=", ">", ">=", "<", "<=", "IS NULL", "IS NOT NULL"],
+                    "control": "number",
+                    "value_type": "float"
+                }
+            },
             "definition": "SUM(revenue)",
             "description": "Total sales revenue.",
             "aggregation": null
@@ -115,6 +131,18 @@ Response:
     ]
 }
 ```
+
+`metadata` is optional and omitted when empty. Servers should preserve unknown
+metadata keys so clients can adopt new annotations incrementally. Standard keys
+are:
+
+| Key | Meaning |
+| --- | ------- |
+| `unit` | Display unit code, such as `usd`, `percent`, or `seconds`. |
+| `filter` | UI hints for building filter controls; query semantics still use the `filters` request payload. |
+
+`metadata.filter.values` can point at the existing values endpoint with
+`{"type": "endpoint", "endpoint": "values"}`.
 
 ### `POST /views/{view_name}/query`
 
@@ -173,6 +201,9 @@ Response — a `SemanticResult`:
 }
 ```
 
+Result schemas intentionally include only `name` and `type`; column metadata is
+discoverable from `POST /views/{view_name}`.
+
 ### `POST /views/{view_name}/row-count`
 
 Identical request body to `…/query`; returns a single-row table with a
@@ -211,6 +242,21 @@ Response: an array of metric objects.
 ### `POST /views/{view_name}/compatible-dimensions`
 
 Same shape as `compatible-metrics`, returning dimensions.
+
+## Changelog
+
+### Unreleased
+
+- Column metadata may now be exposed on dimension and metric objects returned
+  by `POST /views/{view_name}`. The optional `metadata` object currently
+  standardises `unit` for display units and `filter` for UI filter-building
+  hints, while allowing unknown keys for future extension.
+- Result schemas remain metadata-free. Clients should discover column metadata
+  from `POST /views/{view_name}` and use `results.schema` only for tabular
+  output column names and Arrow type names.
+- Arrow types are reported using the Arrow JSON type object's `name` value
+  (`int`, `float`, `utf8`, `date`, `timestamp`, …), not PyArrow's canonical
+  string representation (`int64`, `double`, `string`, `date32[day]`, …).
 
 ## Conformance
 
