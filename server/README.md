@@ -1,9 +1,6 @@
 # Semantic Layer REST API
 
-A Litestar reference implementation of the protocol described in
-[`SPEC.md`](./SPEC.md). A server speaks for exactly one already-configured
-`SemanticLayer` instance; the layer implementation is supplied by the
-operator at startup.
+A Litestar reference implementation of the protocol described in [`SPEC.md`](../SPEC.md). A server speaks for exactly one already-configured `SemanticLayer` instance from Apache Superset; the layer implementation is supplied by the operator at startup.
 
 ## Run
 
