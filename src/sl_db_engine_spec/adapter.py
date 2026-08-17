@@ -3,7 +3,7 @@ An adapter for the Semantic Layer REST API.
 
 Each adapter instance represents a single semantic view exposed by a server
 that speaks the protocol documented in
-``pandas-semantic-layer/server/SPEC.md``. The view's union of dimensions and
+``server/SPEC.md``. The view's union of dimensions and
 metrics is presented as a single virtual table; ``SELECT``s are translated
 into ``POST /views/{name}/query`` requests, and SQLite's ``GROUP BY`` semantics
 take care of the rest.
@@ -83,7 +83,15 @@ _INTEGER_TYPES = {
     "uint32",
     "uint64",
 }
-_FLOAT_TYPES = {"halffloat", "float", "double", "float16", "float32", "float64"}
+_FLOAT_TYPES = {
+    "halffloat",
+    "float",
+    "floating",
+    "double",
+    "float16",
+    "float32",
+    "float64",
+}
 _STRING_TYPES = {"string", "utf8", "large_string", "large_utf8"}
 _DATE_TYPES = {"date", "date32", "date64"}
 _TIME_TYPES = {"time", "time32", "time64"}

@@ -20,6 +20,7 @@ An interface to any server implementing the Semantic Layer REST API.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any, TYPE_CHECKING, TypedDict
 
 from apispec import APISpec
@@ -37,6 +38,8 @@ from superset.errors import ErrorLevel, SupersetError, SupersetErrorType
 from superset.exceptions import OAuth2TokenRefreshError
 from superset.utils import json
 
+from sl_db_engine_spec.metadata import d3format_from_metadata
+
 if TYPE_CHECKING:
     from sqlalchemy.engine.reflection import Inspector
 
@@ -53,6 +56,12 @@ SELECT_STAR_MESSAGE = (
 )
 
 _TRUTHY = {"1", "true", "yes", "on"}
+
+
+def _semantic_metadata(column: Mapping[str, Any]) -> dict[str, Any]:
+    metadata = column.get("semantic_metadata")
+    return dict(metadata) if isinstance(metadata, Mapping) else {}
+
 
 ma_plugin = MarshmallowPlugin()
 
@@ -404,12 +413,17 @@ class SemanticAPIEngineSpec(ShillelaghEngineSpec):
         """
         Translate the view's metric columns into Superset metric definitions.
         """
-        return [
-            {
+        metrics: list[MetricType] = []
+        for column in inspector.get_columns(table.table, table.schema):
+            if "computed" not in column:
+                continue
+            metric: MetricType = {
                 "metric_name": column["name"],
                 "expression": column["computed"]["sqltext"],
                 "description": column["comment"],
             }
-            for column in inspector.get_columns(table.table, table.schema)
-            if "computed" in column
-        ]
+            metadata = _semantic_metadata(column)
+            if d3format := d3format_from_metadata(metadata):
+                metric["d3format"] = d3format
+            metrics.append(metric)
+        return metrics

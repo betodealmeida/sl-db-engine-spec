@@ -15,8 +15,8 @@ def test_arrow_type_name_returns_family_name() -> None:
     assert arrow_type_name(pa.int8()) == "int"
     assert arrow_type_name(pa.int64()) == "int"
     assert arrow_type_name(pa.uint32()) == "int"
-    assert arrow_type_name(pa.float32()) == "float"
-    assert arrow_type_name(pa.float64()) == "float"
+    assert arrow_type_name(pa.float32()) == "floating"
+    assert arrow_type_name(pa.float64()) == "floating"
     assert arrow_type_name(pa.string()) == "utf8"
     assert arrow_type_name(pa.large_string()) == "utf8"
     assert arrow_type_name(pa.date32()) == "date"
@@ -39,7 +39,7 @@ def test_table_to_payload_uses_type_family_names() -> None:
 
     assert payload["schema"] == [
         {"name": "id", "type": "int"},
-        {"name": "amount", "type": "float"},
+        {"name": "amount", "type": "floating"},
         {"name": "created", "type": "date"},
     ]
 
@@ -67,29 +67,51 @@ def test_column_payload_includes_metadata_and_compatibility_attrs() -> None:
         definition="SUM(revenue)",
         description=None,
         aggregation=None,
-        metadata={"display": {"label": "Revenue"}},
-        unit="usd",
+        metadata={"source_owner": "finance"},
+        verbose_name="Revenue",
+        d3format="$,.2f",
+        semantic_type="currency",
+        unit={"kind": "currency", "code": "USD"},
+        attributes=["certified", "core"],
+        format_metadata={
+            "preset": "currency",
+            "precision": 2,
+            "google_sheets": {"type": "CURRENCY", "pattern": "$#,##0.00"},
+        },
         filter_metadata={
-            "operators": ["=", "!=", ">", ">="],
-            "control": "number",
-            "value_type": "float",
+            "kind": "range",
+            "operators": ["=", "!=", ">", ">=", "<", "<=", "between"],
+            "default_operator": "between",
         },
     )
 
     payload = metric_to_payload(metric)
 
     assert payload["metadata"] == {
-        "display": {"label": "Revenue"},
-        "unit": "usd",
+        "display_name": "Revenue",
+        "semantic_type": "currency",
+        "unit": {"kind": "currency", "code": "USD"},
+        "attributes": ["certified", "core"],
+        "format": {
+            "preset": "currency",
+            "precision": 2,
+        },
         "filter": {
-            "operators": ["=", "!=", ">", ">="],
-            "control": "number",
-            "value_type": "float",
+            "kind": "range",
+            "operators": ["=", "!=", ">", ">=", "<", "<=", "between"],
+            "default_operator": "between",
+        },
+        "extensions": {
+            "custom": {"source_owner": "finance"},
+            "superset": {"d3format": "$,.2f"},
+            "google_sheets": {
+                "numberFormat": {"type": "CURRENCY", "pattern": "$#,##0.00"},
+            },
         },
     }
 
 
-def test_existing_metadata_keys_take_precedence() -> None:
+def test_existing_metadata_keys_take_precedence_and_are_normalized() -> None:
     metric = SimpleNamespace(
         id="sales.total_revenue",
         name="total_revenue",
@@ -99,19 +121,83 @@ def test_existing_metadata_keys_take_precedence() -> None:
         aggregation=None,
         metadata={
             "unit": "eur",
-            "filter": {"operators": ["="], "control": "number", "value_type": "float"},
+            "display_name": "Net revenue",
+            "semantic_type": "number",
+            "attributes": ["sensitive"],
+            "format": {"d3": ",.0f"},
+            "filter": {
+                "kind": "range",
+                "operators": ["="],
+                "default_operator": "=",
+            },
         },
+        display_name="Revenue",
+        verbose_name="Gross revenue",
+        d3format="$,.2f",
+        semantic_type="currency",
+        attributes=["certified", "core"],
+        format_metadata={"d3": "$,.2f"},
         unit="usd",
         filter_metadata={
             "operators": [">"],
-            "control": "number",
-            "value_type": "float",
+            "kind": "range",
+            "default_operator": ">",
         },
     )
 
     payload = metric_to_payload(metric)
 
     assert payload["metadata"] == {
-        "unit": "eur",
-        "filter": {"operators": ["="], "control": "number", "value_type": "float"},
+        "display_name": "Net revenue",
+        "semantic_type": "number",
+        "attributes": ["sensitive"],
+        "filter": {
+            "kind": "range",
+            "operators": ["="],
+            "default_operator": "=",
+        },
+        "extensions": {
+            "custom": {"unit": "eur"},
+            "superset": {"d3format": ",.0f"},
+        },
+    }
+
+
+def test_column_payload_reads_attribute_names_method() -> None:
+    dimension = SimpleNamespace(
+        id="sales.region",
+        name="region",
+        type=pa.string(),
+        definition="region",
+        description=None,
+        grain=None,
+        attribute_names=lambda: {"certified", "core"},
+    )
+
+    payload = dimension_to_payload(dimension)
+
+    assert payload["metadata"] == {"attributes": ["certified", "core"]}
+
+
+def test_column_payload_keeps_extensions_and_moves_unknown_keys() -> None:
+    dimension = SimpleNamespace(
+        id="sales.region",
+        name="region",
+        type=pa.string(),
+        definition="region",
+        description=None,
+        grain=None,
+        metadata={
+            "extensions": {"dj": {"node": "sales"}},
+            "owner": "analytics",
+        },
+    )
+
+    payload = dimension_to_payload(dimension)
+
+    assert payload["metadata"] == {
+        "extensions": {
+            "custom": {"owner": "analytics"},
+            "dj": {"node": "sales"},
+        },
     }

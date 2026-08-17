@@ -1,5 +1,7 @@
 # sl-db-engine-spec
 
+This repo contains the specification of a generic semantic layer REST API, as well as an implementation of an Apache Superset DB engine spec to talk to it.
+
 Bundles the three pieces that let Apache Superset talk to a Semantic Layer
 REST API server:
 
