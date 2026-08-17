@@ -1,11 +1,4 @@
-"""Boots and holds the single ``SemanticLayer`` instance the server speaks for.
-
-The Superset host normally replaces ``superset_core.semantic_layers.decorators.semantic_layer``
-at startup with a real implementation. When running standalone we install our
-own — a single-slot binder — *before* the layer module is imported. The
-server then materialises one instance of that class via
-:func:`configure` and holds it for the process lifetime.
-"""
+"""Boots and holds the Pandas semantic layer instance the server speaks for."""
 
 from __future__ import annotations
 
@@ -15,28 +8,31 @@ from litestar.exceptions import InternalServerException
 from superset_core.semantic_layers import decorators
 from superset_core.semantic_layers.layer import SemanticLayer
 
-_CLS: type[SemanticLayer] | None = None
-_LAYER: SemanticLayer | None = None
 
+def _standalone_semantic_layer(
+    id: str,  # noqa: A002
+    name: str,
+    description: str | None = None,
+):
+    _ = (id, name, description)
 
-def semantic_layer(id: str, name: str, description: str | None = None):  # noqa: A002, ARG001
     def register(cls: type[SemanticLayer]) -> type[SemanticLayer]:
-        global _CLS
-        _CLS = cls
         return cls
 
     return register
 
 
-decorators.semantic_layer = semantic_layer
+decorators.semantic_layer = _standalone_semantic_layer
+
+from betodealmeida.pandas_semantic_layer.layer import PandasSemanticLayer  # noqa: E402
+
+_LAYER: SemanticLayer | None = None
 
 
 def configure(configuration: dict[str, Any]) -> SemanticLayer:
-    """Instantiate the registered layer with ``configuration`` and cache it."""
+    """Instantiate the Pandas layer with ``configuration`` and cache it."""
     global _LAYER
-    if _CLS is None:
-        raise InternalServerException(detail="No semantic layer is registered.")
-    _LAYER = _CLS.from_configuration(configuration)
+    _LAYER = PandasSemanticLayer.from_configuration(configuration)
     return _LAYER
 
 

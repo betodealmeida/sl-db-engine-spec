@@ -1,9 +1,6 @@
 # sl-db-engine-spec
 
-This repo contains the specification of a generic semantic layer REST API, as well as an implementation of an Apache Superset DB engine spec to talk to it.
-
-Bundles the three pieces that let Apache Superset talk to a Semantic Layer
-REST API server:
+Bundles the three pieces that let Apache Superset talk to a Semantic Layer REST API server:
 
 | Layer       | Module                            | Plugin host           |
 | ----------- | --------------------------------- | --------------------- |
@@ -11,20 +8,17 @@ REST API server:
 | SQL bridge  | `sl_db_engine_spec.dialect`       | SQLAlchemy            |
 | Superset UI | `sl_db_engine_spec.engine_spec`   | Superset              |
 
-Each piece is registered through the standard entry-point group for its host
-(`shillelagh.adapter`, `sqlalchemy.dialects`, `superset.db_engine_specs`), so
-installing this package is all that's needed — no patching, no manual import.
+Each piece is registered through the standard entry-point group for its host (`shillelagh.adapter`, `sqlalchemy.dialects`, `superset.db_engine_specs`), so installing this package is all that's needed. No patching, no manual import.
 
 ## Install
 
 In your Superset environment:
 
 ```bash
-pip install sl-db-engine-spec
+pip install sl-db-engine-spec/client/
 ```
 
-Restart Superset and the **Semantic Layer API** entry will show up in the
-"Connect a database" dialog.
+Restart Superset and the **Semantic Layer API** entry will show up in the "Connect a database" dialog.
 
 ## Connection parameters
 
@@ -33,13 +27,8 @@ The connection form asks for:
 - **Host** (required) — e.g. `localhost`
 - **Port** — optional
 - **Secure** — toggle for HTTPS
-- **Additional configuration** — JSON object forwarded to the server on every
-  request (sent as `runtime_configuration` when listing views and as
-  `additional_configuration` for each view).
-- **OAuth2 client information** — `{id, secret, scope?}`. The
-  `authorization_request_uri` and `token_request_uri` are auto-filled from
-  the host:port as `http(s)://host:port/authorize` and `.../token`; explicit
-  overrides are preserved.
+- **Additional configuration** — JSON object forwarded to the server on every request (sent as `runtime_configuration` when listing views and as `additional_configuration` for each view).
+- **OAuth2 client information** — `{id, secret, scope?}`. The `authorization_request_uri` and `token_request_uri` are auto-filled from the host:port as `http(s)://host:port/authorize` and `.../token`; explicit overrides are preserved.
 
 ## URL form
 

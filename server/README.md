@@ -1,18 +1,18 @@
 # Semantic Layer REST API
 
-A Litestar reference implementation of the protocol described in [`SPEC.md`](../SPEC.md). A server speaks for exactly one already-configured `SemanticLayer` instance from Apache Superset; the layer implementation is supplied by the operator at startup.
+A Litestar reference implementation of the protocol described in [`SPEC.md`](../SPEC.md). This server speaks for the Pandas semantic layer from [`betodealmeida/pandas-semantic-layer`](https://github.com/betodealmeida/pandas-semantic-layer).
 
 ## Run
 
 ```bash
+# https://github.com/apache/superset
 pip install -e /path/to/superset/superset-core
-pip install -e .
 
-# also install whichever semantic layer implementation you want to serve, e.g.
+# install the Pandas semantic layer implementation
+# https://github.com/betodealmeida/pandas-semantic-layer
 pip install -e /path/to/pandas-semantic-layer/backend
 
-# required: module whose import triggers a @semantic_layer registration
-export SEMANTIC_LAYER_MODULE=betodealmeida.pandas_semantic_layer.layer
+pip install -e .
 
 # optional: pass the layer's configuration as JSON
 export SEMANTIC_LAYER_CONFIGURATION='{"dataset": "sales"}'
