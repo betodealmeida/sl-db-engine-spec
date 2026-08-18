@@ -1,4 +1,4 @@
-# sl-db-engine-spec
+# Semantic Layer REST API clients
 
 Bundles the three pieces that let Apache Superset talk to a Semantic Layer REST API server:
 
@@ -46,8 +46,22 @@ The adapter and dialect work without Superset:
 from sqlalchemy import create_engine, text
 
 engine = create_engine("semanticapi://localhost:8000/")
+sql = """
+SELECT
+  hw_category AS hw_category,
+  dateint AS dateint,
+  completed_downloads AS completed_downloads
+FROM main."demo.metrics.main.thumbs_demo"
+GROUP BY
+  hw_category,
+  dateint
+ORDER BY
+  completed_downloads DESC
+LIMIT 100
+OFFSET 0
+"""
 with engine.connect() as c:
-    print(c.execute(text("SELECT region, total_revenue FROM sales")).fetchall())
+    print(c.execute(text(sql)).fetchall())
 ```
 
 OAuth2 access tokens can be passed in the URL as `?access_token=...`.

@@ -1,17 +1,19 @@
-# Semantic Layer REST API
+# Semantic Layer REST API reference server
 
 A Litestar reference implementation of the protocol described in [`SPEC.md`](../SPEC.md). This server speaks for the Pandas semantic layer from [`betodealmeida/pandas-semantic-layer`](https://github.com/betodealmeida/pandas-semantic-layer).
 
 ## Run
 
 ```bash
-# https://github.com/apache/superset
-pip install -e /path/to/superset/superset-core
+git clone https://github.com/apache/superset.git
+pip install superset/superset-core
 
 # install the Pandas semantic layer implementation
-# https://github.com/betodealmeida/pandas-semantic-layer
-pip install -e /path/to/pandas-semantic-layer/backend
+git clone https://github.com/betodealmeida/pandas-semantic-layer.git
+pip install pandas-semantic-layer/backend
 
+git clone https://github.com/betodealmeida/sl-db-engine-spec.git
+cd sl-db-engine-spec/server/
 pip install -e .
 
 # optional: pass the layer's configuration as JSON
