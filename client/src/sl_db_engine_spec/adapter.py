@@ -2,11 +2,10 @@
 An adapter for the Semantic Layer REST API.
 
 Each adapter instance represents a single semantic view exposed by a server
-that speaks the protocol documented in
-``pandas-semantic-layer/server/SPEC.md``. The view's union of dimensions and
-metrics is presented as a single virtual table; ``SELECT``s are translated
-into ``POST /views/{name}/query`` requests, and SQLite's ``GROUP BY`` semantics
-take care of the rest.
+that speaks the protocol documented in ``SPEC.md``. The view's union of
+dimensions and metrics is presented as a single virtual table; ``SELECT``s are
+translated into ``POST /views/{name}/query`` requests, and SQLite's
+ ``GROUP BY`` semantics take care of the rest.
 
 URIs are of the form ``semantic-api+http://host[:port]/views/<view_name>``
 (or ``+https`` for TLS). The view portion of the path is what the server
@@ -27,7 +26,7 @@ from __future__ import annotations
 
 import logging
 import re
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from typing import Any, cast
 from urllib.parse import parse_qs, urlparse, urlunparse
 
@@ -42,11 +41,13 @@ from shillelagh.exceptions import (
 )
 from shillelagh.fields import (
     Boolean,
+    Decimal,
     Field,
     Float,
     Integer,
     ISODate,
     ISODateTime,
+    ISOTime,
     Order,
     String,
     Unknown,
@@ -71,6 +72,7 @@ _SCALAR_FILTERS = [Equal, NotEqual, Range, IsNull, IsNotNull]
 _NON_SCALAR_FILTERS = [Equal, NotEqual, IsNull, IsNotNull]
 
 _INTEGER_TYPES = {
+    "int",
     "int8",
     "int16",
     "int32",
@@ -80,17 +82,28 @@ _INTEGER_TYPES = {
     "uint32",
     "uint64",
 }
-_FLOAT_TYPES = {"halffloat", "float", "double", "float16", "float32", "float64"}
+_FLOAT_TYPES = {
+    "halffloat",
+    "float",
+    "floating",
+    "double",
+    "float16",
+    "float32",
+    "float64",
+}
 _STRING_TYPES = {"string", "utf8", "large_string", "large_utf8"}
+_DATE_TYPES = {"date", "date32", "date64"}
+_TIME_TYPES = {"time", "time32", "time64"}
 
 
 _FIELD_BY_TYPE: dict[str, tuple[type[Field], list[type[Filter]]]] = {
     **{t: (String, _SCALAR_FILTERS) for t in _STRING_TYPES},
     **{t: (Integer, _SCALAR_FILTERS) for t in _INTEGER_TYPES},
     **{t: (Float, _SCALAR_FILTERS) for t in _FLOAT_TYPES},
+    **{t: (ISODate, _SCALAR_FILTERS) for t in _DATE_TYPES},
+    **{t: (ISOTime, _SCALAR_FILTERS) for t in _TIME_TYPES},
     "bool": (Boolean, _NON_SCALAR_FILTERS),
-    "date32": (ISODate, _SCALAR_FILTERS),
-    "date64": (ISODate, _SCALAR_FILTERS),
+    "decimal": (Decimal, _SCALAR_FILTERS),
     "timestamp": (ISODateTime, _SCALAR_FILTERS),
 }
 
@@ -104,6 +117,11 @@ def _field_for(arrow_type: str, exact: bool = True) -> Field:
     base = arrow_type.split("[", 1)[0]
     cls, filters = _FIELD_BY_TYPE.get(base, (Unknown, _NON_SCALAR_FILTERS))
     return cls(filters=filters, order=Order.ANY, exact=exact)
+
+
+def _metadata_for(column: dict[str, Any]) -> dict[str, Any]:
+    metadata = column.get("metadata")
+    return dict(metadata) if isinstance(metadata, Mapping) else {}
 
 
 class SemanticAPI(Adapter):  # pylint: disable=too-many-instance-attributes
@@ -196,14 +214,23 @@ class SemanticAPI(Adapter):  # pylint: disable=too-many-instance-attributes
         self.metric_ids: dict[str, str] = {m["name"]: m["id"] for m in view["metrics"]}
 
         columns: dict[str, Field] = {}
+        column_metadata: dict[str, dict[str, Any]] = {}
         for dimension in view["dimensions"]:
             columns[dimension["name"]] = _field_for(dimension["type"], exact=True)
+            if metadata := _metadata_for(dimension):
+                column_metadata[dimension["name"]] = metadata
         for metric in view["metrics"]:
             columns[metric["name"]] = _field_for(metric["type"], exact=False)
+            if metadata := _metadata_for(metric):
+                column_metadata[metric["name"]] = metadata
         self.columns = dict(sorted(columns.items()))
+        self.column_metadata = dict(sorted(column_metadata.items()))
 
     def get_columns(self) -> dict[str, Field]:
         return self.columns
+
+    def get_column_metadata(self) -> dict[str, dict[str, Any]]:
+        return self.column_metadata
 
     def get_data(
         self,

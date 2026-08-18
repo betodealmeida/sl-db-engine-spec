@@ -41,7 +41,7 @@ class ViewsController(Controller):
     tags = ["views"]
     guards = [require_bearer]
 
-    @post("/list", status_code=HTTP_200_OK)
+    @post(["/list", "/"], status_code=HTTP_200_OK)
     async def list_views(self, data: ListViewsRequest) -> list[dict[str, Any]]:
         views = registry.layer().get_semantic_views(data.runtime_configuration)
         return [

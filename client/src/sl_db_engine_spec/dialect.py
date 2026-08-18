@@ -273,6 +273,7 @@ class SemanticAPIDialect(APSWDialect):
             get_adapter_for_table_name(connection, table_name),
         )
         metric_names = set(adapter.metric_ids)
+        column_metadata = adapter.get_column_metadata()
 
         columns: list[SQLAlchemyColumn] = []
         for name, field in adapter.get_columns().items():
@@ -285,6 +286,8 @@ class SemanticAPIDialect(APSWDialect):
             }
             if name in metric_names:
                 column["computed"] = {"sqltext": name, "persisted": True}
+            if metadata := column_metadata.get(name):
+                column["semantic_metadata"] = metadata
             columns.append(column)
         return columns
 

@@ -39,3 +39,4 @@ env/
 
 # Type checker
 .dmypy.json
+.env
