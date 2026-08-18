@@ -2,11 +2,10 @@
 An adapter for the Semantic Layer REST API.
 
 Each adapter instance represents a single semantic view exposed by a server
-that speaks the protocol documented in
-``server/SPEC.md``. The view's union of dimensions and
-metrics is presented as a single virtual table; ``SELECT``s are translated
-into ``POST /views/{name}/query`` requests, and SQLite's ``GROUP BY`` semantics
-take care of the rest.
+that speaks the protocol documented in ``SPEC.md``. The view's union of
+dimensions and metrics is presented as a single virtual table; ``SELECT``s are
+translated into ``POST /views/{name}/query`` requests, and SQLite's
+ ``GROUP BY`` semantics take care of the rest.
 
 URIs are of the form ``semantic-api+http://host[:port]/views/<view_name>``
 (or ``+https`` for TLS). The view portion of the path is what the server
