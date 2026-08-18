@@ -13,10 +13,11 @@ drive real client integrations through the dance:
 
 After step 3, every request to ``/views/*`` must carry
 ``Authorization: Bearer <access-token>``. Otherwise the server responds
-``401`` with a body the client can branch on::
+``401`` with an RFC 9457 Problem Details body the client can branch on::
 
-    {"status_code": 401, "detail": "Bearer token required.",
-     "extra": {"error": "oauth_required"}}
+    {"type": "https://semantic-layer.example/problems/oauth-required",
+     "title": "Authentication required", "status": 401,
+     "detail": "Bearer token required.", "code": "OAUTH_REQUIRED"}
 """
 
 from __future__ import annotations
@@ -29,9 +30,9 @@ from urllib.parse import urlencode
 from litestar import Controller, MediaType, Response, get, post
 from litestar.connection import ASGIConnection
 from litestar.enums import RequestEncodingType
-from litestar.exceptions import NotAuthorizedException
 from litestar.handlers.base import BaseRouteHandler
 from litestar.params import Body, Parameter
+from litestar.plugins.problem_details import ProblemDetailsException
 from litestar.response import Redirect
 
 # Hard-coded credentials for the toy IdP. These would never live in source
@@ -44,6 +45,24 @@ TOKEN_LIFETIME = 3600
 
 # Codes are single-use; we keep them in-memory.
 _PENDING_CODES: set[str] = set()
+_PROBLEM_TYPE_BASE = "https://semantic-layer.example/problems"
+
+
+def auth_problem(
+    *,
+    detail: str,
+    code: str,
+    title: str = "Authentication required",
+) -> ProblemDetailsException:
+    """Build an RFC 9457 auth problem response."""
+    return ProblemDetailsException(
+        detail=detail,
+        status_code=401,
+        title=title,
+        type_=f"{_PROBLEM_TYPE_BASE}/{code.lower().replace('_', '-')}",
+        extra={"code": code},
+        headers={"WWW-Authenticate": "Bearer"},
+    )
 
 
 def auth_required() -> bool:
@@ -62,9 +81,9 @@ def require_bearer(connection: ASGIConnection, _: BaseRouteHandler) -> None:
         return
     header = connection.headers.get("authorization", "")
     if header != f"Bearer {ACCESS_TOKEN}":
-        raise NotAuthorizedException(
+        raise auth_problem(
             detail="Bearer token required.",
-            extra={"error": "oauth_required"},
+            code="OAUTH_REQUIRED",
         )
 
 
@@ -84,7 +103,10 @@ class AuthController(Controller):
         confirmed: str = "",
     ) -> Response[Any]:
         if response_type != "code":
-            raise NotAuthorizedException(detail=f"Unsupported response_type {response_type!r}.")
+            raise auth_problem(
+                detail=f"Unsupported response_type {response_type!r}.",
+                code="UNSUPPORTED_RESPONSE_TYPE",
+            )
 
         if confirmed.lower() not in {"yes", "true", "1"}:
             params = urlencode(
@@ -127,16 +149,28 @@ class AuthController(Controller):
         if grant_type == "authorization_code":
             code = data.get("code", "")
             if code not in _PENDING_CODES:
-                raise NotAuthorizedException(detail="Invalid authorization code.")
+                raise auth_problem(
+                    detail="Invalid authorization code.",
+                    code="INVALID_AUTHORIZATION_CODE",
+                )
             _PENDING_CODES.discard(code)
         elif grant_type == "refresh_token":
             if data.get("refresh_token") != REFRESH_TOKEN:
-                raise NotAuthorizedException(detail="Invalid refresh token.")
+                raise auth_problem(
+                    detail="Invalid refresh token.",
+                    code="INVALID_REFRESH_TOKEN",
+                )
         else:
-            raise NotAuthorizedException(detail=f"Unsupported grant_type {grant_type!r}.")
+            raise auth_problem(
+                detail=f"Unsupported grant_type {grant_type!r}.",
+                code="UNSUPPORTED_GRANT_TYPE",
+            )
 
         if data.get("client_id") != CLIENT_ID or data.get("client_secret") != CLIENT_SECRET:
-            raise NotAuthorizedException(detail="Invalid client credentials.")
+            raise auth_problem(
+                detail="Invalid client credentials.",
+                code="INVALID_CLIENT_CREDENTIALS",
+            )
 
         return {
             "access_token": ACCESS_TOKEN,

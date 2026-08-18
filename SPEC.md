@@ -32,10 +32,44 @@ Arrow types are reported using the Arrow JSON type object's `name` value (`int`,
 
 ## Errors
 
-Errors follow [RFC 7807](https://datatracker.ietf.org/doc/html/rfc7807):
+Errors follow [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457.html) Problem Details for HTTP APIs. Error responses should use the `application/problem+json` media type and include a JSON object with these members:
+
+| Member | Required | Meaning |
+| ------ | -------- | ------- |
+| `type` | Yes | URI reference identifying the problem type. Use `about:blank` when no more specific type is available. |
+| `title` | Yes | Short, stable, human-readable summary of the problem type. |
+| `status` | Yes | HTTP status code for this occurrence. It must match the HTTP response status. |
+| `detail` | Yes | Human-readable explanation specific to this occurrence. Clients must not parse this field for structured information. |
+| `instance` | No | URI reference identifying this specific occurrence. |
+
+Problem-specific extension members are allowed. This specification reserves `code` for a stable machine-readable error code and `invalid_params` for request validation failures. `invalid_params` is an array of objects with `name` and `reason` fields; `name` should use a JSON Pointer when the invalid value is in a JSON request body.
+
+Examples:
 
 ```json
-{"status_code": 404, "detail": "Semantic view 'foo' does not exist."}
+{
+    "type": "https://semantic-layer.example/problems/view-not-found",
+    "title": "Semantic view not found",
+    "status": 404,
+    "detail": "Semantic view 'foo' does not exist.",
+    "code": "VIEW_NOT_FOUND"
+}
+```
+
+```json
+{
+    "type": "https://semantic-layer.example/problems/invalid-query",
+    "title": "Invalid semantic query",
+    "status": 400,
+    "detail": "Metric 'sales.revenue' is not part of semantic view 'inventory'.",
+    "code": "UNKNOWN_METRIC",
+    "invalid_params": [
+        {
+            "name": "/query/metrics/0",
+            "reason": "Unknown metric id for this semantic view."
+        }
+    ]
+}
 ```
 
 | Status | Meaning                                            |
@@ -150,17 +184,188 @@ Response:
 }
 ```
 
-The `metadata` attribute is optional and omitted when empty. Top-level metadata is strict: servers should emit only the documented keys below. Producer-specific, experimental, and client-native annotations belong under `extensions`.
+The `metadata` attribute is optional and omitted when empty. Top-level metadata is strict: servers must emit only the documented keys below. Producer-specific, experimental, and client-native annotations belong under `extensions`.
 
 | Key | Meaning |
 | --- | ------- |
 | `display_name` | Human-readable label for the column. |
-| `semantic_type` | Optional business classification, such as `currency`, `percentage`, `proportion`, `count`, `duration`, `data_size`, `date`, `timestamp`, `identifier`, `category`, `url`, `boolean`, `number`, or `string`. |
+| `semantic_type` | Optional business classification. Known values are `currency`, `percentage`, `proportion`, `count`, `duration`, `data_size`, `date`, `timestamp`, `identifier`, `category`, `url`, `boolean`, `number`, and `string`. |
 | `unit` | Semantic unit object. |
 | `attributes` | String tags or classifications associated with the column. |
 | `format` | Presentation hints for clients that render values. |
 | `filter` | UI hints for building filter controls; query semantics still use the `filters` request payload. |
 | `extensions` | Namespaced objects for producer-specific, experimental, or client-native metadata. |
+
+### Metadata Schema
+
+This JSON Schema describes the portable metadata contract. Producers may omit any optional field. Consumers must tolerate absent `metadata`, absent nested objects, and unknown extension namespaces.
+
+```json
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$defs": {
+        "ColumnMetadata": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "display_name": {"type": "string"},
+                "semantic_type": {
+                    "type": "string",
+                    "enum": [
+                        "currency",
+                        "percentage",
+                        "proportion",
+                        "count",
+                        "duration",
+                        "data_size",
+                        "date",
+                        "timestamp",
+                        "identifier",
+                        "category",
+                        "url",
+                        "boolean",
+                        "number",
+                        "string"
+                    ]
+                },
+                "unit": {"$ref": "#/$defs/Unit"},
+                "attributes": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "uniqueItems": true
+                },
+                "format": {"$ref": "#/$defs/FormatMetadata"},
+                "filter": {"$ref": "#/$defs/FilterMetadata"},
+                "extensions": {"$ref": "#/$defs/Extensions"}
+            }
+        },
+        "Unit": {
+            "oneOf": [
+                {"$ref": "#/$defs/AtomicUnit"},
+                {"$ref": "#/$defs/CompoundUnit"}
+            ]
+        },
+        "AtomicUnit": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["kind"],
+            "properties": {
+                "kind": {
+                    "type": "string",
+                    "enum": [
+                        "currency",
+                        "time",
+                        "data_size",
+                        "percentage",
+                        "proportion",
+                        "count",
+                        "unitless"
+                    ]
+                },
+                "code": {"type": "string", "minLength": 1}
+            }
+        },
+        "CompoundUnit": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["numerator", "denominator"],
+            "properties": {
+                "numerator": {"$ref": "#/$defs/AtomicUnit"},
+                "denominator": {"$ref": "#/$defs/AtomicUnit"}
+            }
+        },
+        "FormatMetadata": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "preset": {
+                    "type": "string",
+                    "enum": [
+                        "smart_number",
+                        "number",
+                        "currency",
+                        "percentage",
+                        "duration",
+                        "data_size"
+                    ]
+                },
+                "precision": {"type": "integer", "minimum": 0},
+                "scale": {"type": "number"}
+            }
+        },
+        "FilterMetadata": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "kind": {
+                    "type": "string",
+                    "enum": [
+                        "text",
+                        "number",
+                        "range",
+                        "date",
+                        "datetime",
+                        "boolean",
+                        "select"
+                    ]
+                },
+                "operators": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "enum": [
+                            "=",
+                            "!=",
+                            ">",
+                            ">=",
+                            "<",
+                            "<=",
+                            "IN",
+                            "NOT IN",
+                            "IS NULL",
+                            "IS NOT NULL",
+                            "between",
+                            "contains",
+                            "starts_with",
+                            "ends_with"
+                        ]
+                    },
+                    "uniqueItems": true
+                },
+                "default_operator": {
+                    "type": "string",
+                    "enum": [
+                        "=",
+                        "!=",
+                        ">",
+                        ">=",
+                        "<",
+                        "<=",
+                        "IN",
+                        "NOT IN",
+                        "IS NULL",
+                        "IS NOT NULL",
+                        "between",
+                        "contains",
+                        "starts_with",
+                        "ends_with"
+                    ]
+                },
+                "multi": {"type": "boolean"}
+            }
+        },
+        "Extensions": {
+            "type": "object",
+            "additionalProperties": {
+                "type": "object"
+            }
+        }
+    },
+    "$ref": "#/$defs/ColumnMetadata"
+}
+```
+
+### Units
 
 Units support atomic units and compound rate units:
 
@@ -175,13 +380,58 @@ Units support atomic units and compound rate units:
 }
 ```
 
-Known atomic unit kinds are `currency`, `time`, `data_size`, `percentage`, `proportion`, `count`, and `unitless`. `code` is optional for `currency` and `count`, required for `time` and `data_size`, and omitted for `percentage`, `proportion`, and `unitless`. Consumers that do not understand structured units may fall back to displaying the `code` if present, otherwise the `kind`.
+Known atomic unit kinds are `currency`, `time`, `data_size`, `percentage`, `proportion`, `count`, and `unitless`. `code` is optional for `currency` and `count`, required for `time` and `data_size`, and omitted for `percentage`, `proportion`, and `unitless`. Currency codes should use ISO 4217 values such as `USD`. Time unit codes should use common short unit symbols such as `ns`, `us`, `ms`, `s`, `min`, `h`, and `d`. Data size codes should use common byte unit symbols such as `B`, `KB`, `MB`, `GB`, and `TB`. Consumers that do not understand structured units may fall back to displaying the `code` if present, otherwise the `kind`.
 
-The `metadata.format` attribute is portable and contains only `preset`, `precision`, and `scale`. `format.preset` is one of `smart_number`, `number`, `currency`, `percentage`, `duration`, or `data_size`. `format.precision` is a non-negative integer describing decimal places. `format.scale` is a numeric display multiplier; omitted means no scaling.
+### Formats
 
-Native client formats live under `metadata.extensions`, for example `extensions.superset.d3format` for Superset and `extensions.google_sheets.numberFormat` for Google Sheets/Coefficient. Extension namespaces are objects keyed by stable producer or client names. Unknown top-level producer metadata should be moved under `extensions.custom`.
+The `metadata.format` attribute is portable and contains only `preset`, `precision`, and `scale`. `format.preset` is one of `smart_number`, `number`, `currency`, `percentage`, `duration`, or `data_size`. `format.precision` is a non-negative integer describing decimal places. `format.scale` is a numeric multiplier applied to raw values before display; omitted means no scaling. For example, a value of `42` with `scale: 0.001` is displayed as `0.042` before precision and preset formatting are applied.
 
-The `metadata.filter` attribute is advisory metadata for query builders. Initial filter hints describe controls only; dynamic value loading is intentionally outside the metadata payload. Known filter `kind` values are `text`, `number`, `range`, `date`, `datetime`, `boolean`, and `select`. Common fields are `operators`, `default_operator`, and `multi`. When present, `default_operator` must be one of `operators`; `multi` is only meaningful for `select`.
+The `percentage` preset assumes raw values are ratios. A raw value of `0.42` with `preset: "percentage"` is displayed as `42%` by clients that follow the portable hint. Use a client-native extension when the target client needs different behavior.
+
+Native client formats live under `metadata.extensions`, for example `extensions.superset.d3format` for Superset and `extensions.google_sheets.numberFormat` for Google Sheets/Coefficient:
+
+```json
+{
+    "extensions": {
+        "superset": {"d3format": "$,.2f"},
+        "google_sheets": {
+            "numberFormat": {
+                "type": "CURRENCY",
+                "pattern": "$#,##0.00"
+            }
+        }
+    }
+}
+```
+
+### Filters
+
+The `metadata.filter` attribute is advisory metadata for query builders. Query semantics still use the `filters` request payload. Initial filter hints describe controls only; dynamic value loading is intentionally outside the metadata payload. Clients that need selectable values should call `POST /views/{view_name}/values`.
+
+Known filter `kind` values are `text`, `number`, `range`, `date`, `datetime`, `boolean`, and `select`. Common fields are `operators`, `default_operator`, and `multi`. When present, `default_operator` must be one of `operators`; `multi` is only meaningful for `select`.
+
+The initial portable operator vocabulary is:
+
+| Operator | Meaning |
+| -------- | ------- |
+| `=` | Equal to a scalar value. |
+| `!=` | Not equal to a scalar value. |
+| `>` | Greater than a scalar value. |
+| `>=` | Greater than or equal to a scalar value. |
+| `<` | Less than a scalar value. |
+| `<=` | Less than or equal to a scalar value. |
+| `IN` | In a list of values. |
+| `NOT IN` | Not in a list of values. |
+| `IS NULL` | Value is null; `value` should be `null`. |
+| `IS NOT NULL` | Value is not null; `value` should be `null`. |
+| `between` | Between two boundary values; `value` should be a two-element list. |
+| `contains` | Text contains a substring. |
+| `starts_with` | Text starts with a substring. |
+| `ends_with` | Text ends with a substring. |
+
+### Extensions
+
+Extension namespaces are objects keyed by stable producer or client names. Known examples are `superset`, `google_sheets`, `datajunction`, `quiver`, and `custom`. Servers must move unknown top-level producer metadata under an extension namespace instead of emitting it at the metadata top level. Clients must ignore unknown extension namespaces and unknown fields inside known extension namespaces.
 
 ### `POST /views/{view_name}/query`
 
@@ -283,10 +533,12 @@ Same shape as `compatible-metrics`, returning dimensions.
 
 ### Unreleased
 
+- Error responses now follow RFC 9457 Problem Details for HTTP APIs and should use `application/problem+json`.
 - Column metadata may now be exposed on dimension and metric objects returned by `POST /views/{view_name}`. The optional `metadata` object now has a strict top-level contract: `display_name`, `semantic_type`, `unit`, `attributes`, `format`, `filter`, and `extensions`.
+- Added a formal JSON Schema for portable column metadata, including `unit`, `format`, `filter`, and `extensions`.
 - `metadata.unit` is documented as an object-only atomic or compound unit. Consumers may tolerate legacy string units during migration, but conforming servers should not emit string units.
-- Added portable `metadata.format` for presentation hints with `preset`/`precision`/`scale` fields. Native client formats such as Superset D3 and Google Sheets number formats belong under namespaced `metadata.extensions`.
-- Clarified that `metadata.filter` is advisory query-builder metadata. The first version describes controls/operators/defaults only and does not embed dynamic value endpoint references.
+- Added portable `metadata.format` for presentation hints with `preset`/`precision`/`scale` fields, including explicit `scale` and percentage semantics. Native client formats such as Superset D3 and Google Sheets number formats belong under namespaced `metadata.extensions`.
+- Clarified that `metadata.filter` is advisory query-builder metadata. The first version describes controls/operators/defaults only and does not embed dynamic value endpoint references. Clients should use `POST /views/{view_name}/values` for dynamic selectable values.
 - Result schemas remain metadata-free. Clients should discover column metadata from `POST /views/{view_name}` and use `results.schema` only for tabular output column names and Arrow type names.
 - Arrow types are reported using the Arrow JSON type object's `name` value (`int`, `floating`, `utf8`, `date`, `timestamp`, …), not PyArrow's canonical string representation (`int64`, `double`, `string`, `date32[day]`, …).
 
@@ -296,4 +548,15 @@ A server is conformant if, for every method on `SemanticView`, the
 corresponding endpoint:
 
 1. resolves metric/dimension references by id against the view's `get_metrics()` / `get_dimensions()` before invoking the underlying call;
-2. returns `SemanticResult` payloads with the request log preserved verbatim.
+2. returns `SemanticResult` payloads with the request log preserved verbatim;
+3. reports column types using Arrow JSON type names, including `floating` for floating-point values;
+4. omits `metadata` when empty;
+5. emits only documented top-level metadata keys and places producer-specific, experimental, or client-native metadata under `extensions`;
+6. emits RFC 9457 problem details for error responses.
+
+A client is conformant if it:
+
+1. resolves result column metadata from `POST /views/{view_name}` and treats `results.schema` as tabular output only;
+2. tolerates absent `metadata` and absent nested metadata objects;
+3. ignores unknown extension namespaces and unknown fields inside known extension namespaces;
+4. treats `metadata.filter` as advisory UI metadata and uses the query `filters` payload for query semantics.

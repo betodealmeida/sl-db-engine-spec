@@ -8,6 +8,7 @@ from typing import Any
 
 from litestar import Litestar
 from litestar.openapi import OpenAPIConfig
+from litestar.plugins.problem_details import ProblemDetailsPlugin
 
 from semantic_api import registry
 from semantic_api.auth import AuthController
@@ -29,6 +30,7 @@ def create_app() -> Litestar:
             version="0.1.0",
             description="REST interface for a Superset semantic layer.",
         ),
+        plugins=[ProblemDetailsPlugin()],
         logging_config=None,
     )
 
